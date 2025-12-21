@@ -3,6 +3,9 @@
     "name": "baken-app",
     "slug": "baken-app",
     "githubUrl": "https://github.com/rukaeto/baken-maker",
+    "experiments": {
+      "baseUrl": "/baken-maker" 
+    },
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
