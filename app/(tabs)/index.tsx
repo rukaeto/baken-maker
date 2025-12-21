@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Alert, Image, Platform } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
+// 枠色計算ロジック
 const getWakuStyleByMaxHorses = (numStr: string, maxHorses: number) => {
   const n = parseInt(numStr);
   if (isNaN(n)) return { bg: '#eee', text: '#000', border: '#ccc' };
@@ -60,7 +61,7 @@ export default function HomeScreen() {
   const pickImage = async () => {
     try {
       let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 1,
@@ -96,8 +97,6 @@ export default function HomeScreen() {
     return validCombinations.size;
   };
 
-  const ticketCount = calculateTickets();
-
   const toggleHorse = (num: string) => {
     const colKey = `col${activeCol}` as 'col1' | 'col2' | 'col3';
     const currentList = raceInfo[colKey];
@@ -109,30 +108,29 @@ export default function HomeScreen() {
   };
 
   const handleShare = async () => {
+    if (Platform.OS === 'web') {
+      alert('Web版ではプレビュー画像を長押し、または右クリックで保存してください。');
+      return;
+    }
     try {
       const uri = await viewShotRef.current.capture();
-      if (uri) await Sharing.shareAsync(uri);
+      await Sharing.shareAsync(uri);
     } catch (e) {
       Alert.alert('エラー', '保存・共有に失敗しました。');
     }
   };
 
-  const WatermarkBackground = () => {
-    const texts = Array(30).fill('馬券メーカー  ');
-    return (
-      <View style={styles.watermarkContainer} pointerEvents="none">
-        {texts.map((t, i) => (
-          <Text key={i} style={styles.watermarkText}>{t.repeat(5)}</Text>
-        ))}
-      </View>
-    );
-  };
+  const WatermarkBackground = () => (
+    <View style={styles.watermarkContainer} pointerEvents="none">
+      {Array(15).fill(0).map((_, i) => (
+        <Text key={i} style={styles.watermarkText}>馬券メーカー Pro 馬券メーカー Pro 馬券メーカー Pro</Text>
+      ))}
+    </View>
+  );
 
-  const renderHorseBlock = (colKey: 'col1' | 'col2' | 'col3', label: string) => {
+  const renderTicketHorseBlock = (colKey: 'col1' | 'col2' | 'col3', label: string) => {
     const numbers = raceInfo[colKey];
     if (numbers.length === 0) return null;
-    const isSingle = numbers.length === 1;
-
     return (
       <View style={styles.columnBlock}>
         <Text style={styles.columnLabel}>{label}</Text>
@@ -144,17 +142,8 @@ export default function HomeScreen() {
                 <View style={[styles.ticketBadge, { backgroundColor: style.bg, borderColor: style.border }]}>
                   <Text style={[styles.ticketBadgeText, { color: style.text }]}>{num}</Text>
                 </View>
-                {isSingle && (
-                  <TextInput
-                    style={styles.horseNameInputInline}
-                    placeholder="馬名を入力"
-                    placeholderTextColor="#ccc"
-                    value={horseNames[colKey]}
-                    onChangeText={(t) => setHorseNames({ ...horseNames, [colKey]: t })}
-                  />
-                )}
-                {/* 複数頭の時はカンマを表示（最後以外） */}
-                {!isSingle && idx < numbers.length - 1 && <Text style={styles.commaText}>,</Text>}
+                {numbers.length === 1 && horseNames[colKey] ? <Text style={styles.horseNameInTicket}>{horseNames[colKey]}</Text> : null}
+                {numbers.length > 1 && idx < numbers.length - 1 && <Text style={styles.commaText}>,</Text>}
               </View>
             );
           })}
@@ -177,7 +166,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowDatePicker(true)}>
           <Text>{date.toLocaleDateString('ja-JP')}</Text>
         </TouchableOpacity>
-        {showDatePicker && <DateTimePicker value={date} mode="date" display="default" onChange={(e, d) => { setShowDatePicker(false); if (d) setDate(d); }} />}
+        {showDatePicker && <DateTimePicker value={date} mode="date" onChange={(e, d) => { setShowDatePicker(false); if (d) setDate(d); }} />}
 
         <View style={styles.grid}>{JRA_PLACES.map(p => (
           <TouchableOpacity key={p} style={[styles.miniChip, raceInfo.place === p && styles.chipActive]} onPress={() => setRaceInfo({...raceInfo, place: p})}>
@@ -202,21 +191,33 @@ export default function HomeScreen() {
         <View style={styles.grid}>{TICKET_TYPES.map(t => (
           <TouchableOpacity key={t.label} style={[styles.typeChip, raceInfo.type === t.label && styles.typeChipActive]} onPress={() => {
             setRaceInfo({...raceInfo, type: t.label, col1: [], col2: [], col3: []});
+            setHorseNames({ col1: '', col2: '', col3: '' });
             setActiveCol(1);
           }}>
             <Text style={[styles.chipText, raceInfo.type === t.label && styles.chipTextActive]}>{t.label}</Text>
           </TouchableOpacity>
         ))}</View>
-        <TextInput style={styles.textInput} value={pricePerUnit} keyboardType="numeric" onChangeText={setPricePerUnit} placeholder="金額（例: 100）" />
+        <TextInput style={styles.textInput} value={pricePerUnit} keyboardType="numeric" onChangeText={setPricePerUnit} placeholder="金額" />
 
-        <Text style={styles.label}>5. 馬番選択</Text>
+        <Text style={styles.label}>5. 馬番選択（{activeCol}列目）</Text>
         <View style={styles.tabRow}>
           {[...Array(currentType.cols)].map((_, i) => (
             <TouchableOpacity key={i} style={[styles.tab, activeCol === i + 1 && styles.tabActive]} onPress={() => setActiveCol(i + 1)}>
-              <Text style={styles.tabTextActive}>{i + 1}列目 {raceInfo[`col${i+1}` as 'col1'|'col2'|'col3'].length}  頭</Text>
+              <Text style={styles.tabTextActive}>{i + 1}列目 ({raceInfo[`col${i+1}` as 'col1'|'col2'|'col3'].length})</Text>
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* 馬名入力欄（1頭選択時のみ表示） */}
+        {raceInfo[`col${activeCol}` as 'col1'|'col2'|'col3'].length === 1 && (
+          <TextInput
+            style={styles.horseNameInputOuter}
+            placeholder={`${activeCol}列目の馬名を入力`}
+            value={horseNames[`col${activeCol}` as 'col1'|'col2'|'col3']}
+            onChangeText={(t) => setHorseNames({ ...horseNames, [`col${activeCol}` as 'col1'|'col2'|'col3']: t })}
+          />
+        )}
+
         <View style={styles.grid}>{HORSE_NUMBERS.map(num => (
           <TouchableOpacity key={num} style={[styles.horseChip, raceInfo[`col${activeCol}` as 'col1'|'col2'|'col3'].includes(num) && styles.horseChipActive]} onPress={() => toggleHorse(num)}>
             <Text style={raceInfo[`col${activeCol}` as 'col1'|'col2'|'col3'].includes(num) && {color: '#fff'}}>{num}</Text>
@@ -233,15 +234,18 @@ export default function HomeScreen() {
           <View style={styles.ticketBody}>
             <Text style={styles.ticketTypeLabel}>{raceInfo.type}</Text>
             <View style={styles.formationArea}>
-              {renderHorseBlock("col1", "1列目")}
+              {renderTicketHorseBlock("col1", "1列目")}
               {currentType.cols >= 2 && raceInfo.col2.length > 0 && <View style={styles.columnDivider} />}
-              {renderHorseBlock("col2", "2列目")}
+              {renderTicketHorseBlock("col2", "2列目")}
               {currentType.cols >= 3 && raceInfo.col3.length > 0 && <View style={styles.columnDivider} />}
-              {renderHorseBlock("col3", "3列目")}
+              {renderTicketHorseBlock("col3", "3列目")}
             </View>
           </View>
           <View style={styles.ticketFooter}>
-            <View><Text style={styles.calcDetail}>{ticketCount}点 各{pricePerUnit}円</Text><Text style={styles.totalAmountText}>合計 {(ticketCount * (Number(pricePerUnit) || 0)).toLocaleString()} 円</Text></View>
+            <View>
+              <Text style={styles.calcDetail}>{calculateTickets()}点 各{pricePerUnit}円</Text>
+              <Text style={styles.totalAmountText}>合計 {(calculateTickets() * (Number(pricePerUnit) || 0)).toLocaleString()} 円</Text>
+            </View>
             <View style={styles.iconContainer}>{userIcon ? <Image source={{ uri: userIcon }} style={styles.userIconStyle} /> : <View style={styles.dummyQr} />}</View>
           </View>
         </View>
@@ -274,10 +278,11 @@ const styles = StyleSheet.create({
   tabTextActive: { fontSize: 12, fontWeight: 'bold' },
   horseChip: { width: '15.5%', paddingVertical: 12, backgroundColor: '#eee', borderRadius: 6, alignItems: 'center' },
   horseChipActive: { backgroundColor: '#d32f2f' },
+  horseNameInputOuter: { backgroundColor: '#fff9c4', padding: 10, borderRadius: 8, marginTop: 10, borderWidth: 1, borderColor: '#fbc02d', fontWeight: 'bold' },
 
   ticket: { backgroundColor: '#fff', padding: 18, borderWidth: 1, borderColor: '#999', borderLeftWidth: 15, borderLeftColor: '#1b5e20', minHeight: 260, position: 'relative', overflow: 'hidden' },
-  watermarkContainer: { ...StyleSheet.absoluteFillObject, opacity: 0.05, transform: [{ rotate: '-25deg' }, { scale: 1.5 }], justifyContent: 'center', alignItems: 'center' },
-  watermarkText: { fontSize: 12, color: '#1b5e20', fontWeight: 'bold', lineHeight: 24, textAlign: 'center' },
+  watermarkContainer: { ...StyleSheet.absoluteFillObject, opacity: 0.04, transform: [{ rotate: '-20deg' }, { scale: 2 }], justifyContent: 'center' },
+  watermarkText: { fontSize: 10, color: '#1b5e20', fontWeight: 'bold', lineHeight: 20, textAlign: 'center' },
   ticketHeader: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 10 },
   headerText: { fontSize: 15, fontWeight: 'bold' },
   ticketBody: { flex: 1, marginTop: 12 },
@@ -286,14 +291,12 @@ const styles = StyleSheet.create({
   columnBlock: { marginBottom: 8, paddingLeft: 12, borderLeftWidth: 3, borderLeftColor: '#1b5e20' },
   columnLabel: { fontSize: 10, color: '#1b5e20', fontWeight: 'bold', marginBottom: 4 },
   columnDivider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 8 },
-  
-  // 【修正】馬番を横並びにするレイアウト
   horseHorizontalList: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
   horseItem: { flexDirection: 'row', alignItems: 'center', marginVertical: 2 },
-  ticketBadge: { width: 30, height: 30, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderRadius: 5, marginRight: 2 },
+  ticketBadge: { width: 30, height: 30, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderRadius: 5, marginRight: 4 },
   ticketBadgeText: { fontWeight: 'bold', fontSize: 16 },
+  horseNameInTicket: { fontSize: 18, fontWeight: 'bold', color: '#000', marginLeft: 4 },
   commaText: { fontSize: 18, fontWeight: 'bold', marginRight: 6, color: '#666' },
-  horseNameInputInline: { fontSize: 18, fontWeight: 'bold', color: '#000', minWidth: 120, marginLeft: 8 },
 
   ticketFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 10 },
   calcDetail: { fontSize: 12, color: '#666' },
