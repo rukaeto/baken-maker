@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "baken-app",
+    "slug": "baken-app",
+    "githubUrl": "https://github.com/rukaeto/baken-maker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "baken-app-scheme",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "permissions": [
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "馬券画像を保存するために使用します。",
+          "savePhotosPermission": "馬券画像を保存するために使用します。"
+        }
+      ]
+    ]
+  }
+}
