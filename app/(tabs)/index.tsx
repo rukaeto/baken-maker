@@ -5,7 +5,7 @@ import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-// 枠色計算ロジック
+// --- 補助関数・定数は維持 ---
 const getWakuStyleByMaxHorses = (numStr: string, maxHorses: number) => {
   const n = parseInt(numStr);
   if (isNaN(n)) return { bg: '#eee', text: '#000', border: '#ccc' };
@@ -58,6 +58,7 @@ export default function HomeScreen() {
   const currentType = TICKET_TYPES.find(t => t.label === raceInfo.type) || TICKET_TYPES[0];
   const HORSE_NUMBERS = Array.from({ length: maxHorses }, (_, i) => (i + 1).toString());
 
+  // --- ハンドラ ---
   const pickImage = async () => {
     try {
       let result = await ImagePicker.launchImageLibraryAsync({
@@ -120,10 +121,11 @@ export default function HomeScreen() {
     }
   };
 
+  // --- レンダリング補助 ---
   const WatermarkBackground = () => (
     <View style={styles.watermarkContainer} pointerEvents="none">
-      {Array(15).fill(0).map((_, i) => (
-        <Text key={i} style={styles.watermarkText}>馬券メーカー Pro 馬券メーカー Pro 馬券メーカー Pro</Text>
+      {Array(10).fill(0).map((_, i) => (
+        <Text key={i} style={styles.watermarkText} pointerEvents="none">馬券メーカー Pro 馬券メーカー Pro</Text>
       ))}
     </View>
   );
@@ -153,113 +155,131 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
-      <Text style={styles.title}>馬券メーカー Pro</Text>
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>馬券メーカー Pro</Text>
 
-      <View style={styles.formCard}>
-        <Text style={styles.label}>1. カスタムアイコン</Text>
-        <TouchableOpacity style={styles.iconPickBtn} onPress={pickImage}>
-          <Text style={styles.iconPickBtnText}>{userIcon ? "アイコンを変更" : "画像を選択"}</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.label}>2. 開催日 / 競馬場 / R</Text>
-        <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowDatePicker(true)}>
-          <Text>{date.toLocaleDateString('ja-JP')}</Text>
-        </TouchableOpacity>
-        {showDatePicker && <DateTimePicker value={date} mode="date" onChange={(e, d) => { setShowDatePicker(false); if (d) setDate(d); }} />}
-
-        <View style={styles.grid}>{JRA_PLACES.map(p => (
-          <TouchableOpacity key={p} style={[styles.miniChip, raceInfo.place === p && styles.chipActive]} onPress={() => setRaceInfo({...raceInfo, place: p})}>
-            <Text style={[styles.chipText, raceInfo.place === p && styles.chipTextActive]}>{p}</Text>
+        {/* 入力フォームカード */}
+        <View style={styles.formCard}>
+          <Text style={styles.label}>1. カスタムアイコン</Text>
+          <TouchableOpacity style={styles.iconPickBtn} onPress={pickImage}>
+            <Text style={styles.iconPickBtnText}>{userIcon ? "アイコンを変更" : "画像を選択"}</Text>
           </TouchableOpacity>
-        ))}</View>
-        <View style={styles.grid}>{RACE_NUMBERS.map(n => (
-          <TouchableOpacity key={n} style={[styles.numChip, raceInfo.raceNum === n && styles.chipActive]} onPress={() => setRaceInfo({...raceInfo, raceNum: n})}>
-            <Text style={[styles.chipText, raceInfo.raceNum === n && styles.chipTextActive]}>{n}</Text>
-          </TouchableOpacity>
-        ))}</View>
 
-        <Text style={styles.label}>3. 出走頭数 / レース名</Text>
-        <View style={styles.grid}>{[8, 10, 12, 14, 16, 18].map(h => (
-          <TouchableOpacity key={h} style={[styles.numChip, maxHorses === h && styles.chipActive]} onPress={() => { setMaxHorses(h); setRaceInfo({...raceInfo, col1:[], col2:[], col3:[]}); }}>
-            <Text style={[styles.chipText, maxHorses === h && styles.chipTextActive]}>{h}</Text>
+          <Text style={styles.label}>2. 開催日 / 競馬場 / R</Text>
+          <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowDatePicker(true)}>
+            <Text>{date.toLocaleDateString('ja-JP')}</Text>
           </TouchableOpacity>
-        ))}</View>
-        <TextInput style={styles.textInput} placeholder="レース名（例:有馬記念）" onChangeText={(t) => setRaceInfo({...raceInfo, raceName: t})} />
+          {showDatePicker && (
+             <DateTimePicker 
+               value={date} 
+               mode="date" 
+               onChange={(e, d) => { setShowDatePicker(false); if (d) setDate(d); }} 
+             />
+          )}
 
-        <Text style={styles.label}>4. 券種 / 単価</Text>
-        <View style={styles.grid}>{TICKET_TYPES.map(t => (
-          <TouchableOpacity key={t.label} style={[styles.typeChip, raceInfo.type === t.label && styles.typeChipActive]} onPress={() => {
-            setRaceInfo({...raceInfo, type: t.label, col1: [], col2: [], col3: []});
-            setHorseNames({ col1: '', col2: '', col3: '' });
-            setActiveCol(1);
-          }}>
-            <Text style={[styles.chipText, raceInfo.type === t.label && styles.chipTextActive]}>{t.label}</Text>
-          </TouchableOpacity>
-        ))}</View>
-        <TextInput style={styles.textInput} value={pricePerUnit} keyboardType="numeric" onChangeText={setPricePerUnit} placeholder="金額" />
-
-        <Text style={styles.label}>5. 馬番選択（{activeCol}列目）</Text>
-        <View style={styles.tabRow}>
-          {[...Array(currentType.cols)].map((_, i) => (
-            <TouchableOpacity key={i} style={[styles.tab, activeCol === i + 1 && styles.tabActive]} onPress={() => setActiveCol(i + 1)}>
-              <Text style={styles.tabTextActive}>{i + 1}列目 ({raceInfo[`col${i+1}` as 'col1'|'col2'|'col3'].length})</Text>
+          <View style={styles.grid}>{JRA_PLACES.map(p => (
+            <TouchableOpacity key={p} style={[styles.miniChip, raceInfo.place === p && styles.chipActive]} onPress={() => setRaceInfo({...raceInfo, place: p})}>
+              <Text style={[styles.chipText, raceInfo.place === p && styles.chipTextActive]}>{p}</Text>
             </TouchableOpacity>
-          ))}
+          ))}</View>
+          <View style={styles.grid}>{RACE_NUMBERS.map(n => (
+            <TouchableOpacity key={n} style={[styles.numChip, raceInfo.raceNum === n && styles.chipActive]} onPress={() => setRaceInfo({...raceInfo, raceNum: n})}>
+              <Text style={[styles.chipText, raceInfo.raceNum === n && styles.chipTextActive]}>{n}</Text>
+            </TouchableOpacity>
+          ))}</View>
+
+          <Text style={styles.label}>3. 出走頭数 / レース名</Text>
+          <View style={styles.grid}>{[8, 10, 12, 14, 16, 18].map(h => (
+            <TouchableOpacity key={h} style={[styles.numChip, maxHorses === h && styles.chipActive]} onPress={() => { setMaxHorses(h); setRaceInfo({...raceInfo, col1:[], col2:[], col3:[]}); }}>
+              <Text style={[styles.chipText, maxHorses === h && styles.chipTextActive]}>{h}</Text>
+            </TouchableOpacity>
+          ))}</View>
+          <TextInput style={styles.textInput} placeholder="レース名（例:有馬記念）" onChangeText={(t) => setRaceInfo({...raceInfo, raceName: t})} />
+
+          <Text style={styles.label}>4. 券種 / 単価</Text>
+          <View style={styles.grid}>{TICKET_TYPES.map(t => (
+            <TouchableOpacity key={t.label} style={[styles.typeChip, raceInfo.type === t.label && styles.typeChipActive]} onPress={() => {
+              setRaceInfo({...raceInfo, type: t.label, col1: [], col2: [], col3: []});
+              setHorseNames({ col1: '', col2: '', col3: '' });
+              setActiveCol(1);
+            }}>
+              <Text style={[styles.chipText, raceInfo.type === t.label && styles.chipTextActive]}>{t.label}</Text>
+            </TouchableOpacity>
+          ))}</View>
+          <TextInput style={styles.textInput} value={pricePerUnit} keyboardType="numeric" onChangeText={setPricePerUnit} placeholder="金額" />
+
+          <Text style={styles.label}>5. 馬番選択（{activeCol}列目）</Text>
+          <View style={styles.tabRow}>
+            {[...Array(currentType.cols)].map((_, i) => (
+              <TouchableOpacity key={i} style={[styles.tab, activeCol === i + 1 && styles.tabActive]} onPress={() => setActiveCol(i + 1)}>
+                <Text style={styles.tabTextActive}>{i + 1}列目 ({raceInfo[`col${i+1}` as 'col1'|'col2'|'col3'].length})</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {raceInfo[`col${activeCol}` as 'col1'|'col2'|'col3'].length === 1 && (
+            <TextInput
+              style={styles.horseNameInputOuter}
+              placeholder={`${activeCol}列目の馬名を入力`}
+              value={horseNames[`col${activeCol}` as 'col1'|'col2'|'col3']}
+              onChangeText={(t) => setHorseNames({ ...horseNames, [`col${activeCol}` as 'col1'|'col2'|'col3']: t })}
+            />
+          )}
+
+          <View style={styles.grid}>{HORSE_NUMBERS.map(num => (
+            <TouchableOpacity key={num} style={[styles.horseChip, raceInfo[`col${activeCol}` as 'col1'|'col2'|'col3'].includes(num) && styles.horseChipActive]} onPress={() => toggleHorse(num)}>
+              <Text style={raceInfo[`col${activeCol}` as 'col1'|'col2'|'col3'].includes(num) && {color: '#fff'}}>{num}</Text>
+            </TouchableOpacity>
+          ))}</View>
         </View>
 
-        {/* 馬名入力欄（1頭選択時のみ表示） */}
-        {raceInfo[`col${activeCol}` as 'col1'|'col2'|'col3'].length === 1 && (
-          <TextInput
-            style={styles.horseNameInputOuter}
-            placeholder={`${activeCol}列目の馬名を入力`}
-            value={horseNames[`col${activeCol}` as 'col1'|'col2'|'col3']}
-            onChangeText={(t) => setHorseNames({ ...horseNames, [`col${activeCol}` as 'col1'|'col2'|'col3']: t })}
-          />
-        )}
-
-        <View style={styles.grid}>{HORSE_NUMBERS.map(num => (
-          <TouchableOpacity key={num} style={[styles.horseChip, raceInfo[`col${activeCol}` as 'col1'|'col2'|'col3'].includes(num) && styles.horseChipActive]} onPress={() => toggleHorse(num)}>
-            <Text style={raceInfo[`col${activeCol}` as 'col1'|'col2'|'col3'].includes(num) && {color: '#fff'}}>{num}</Text>
-          </TouchableOpacity>
-        ))}</View>
-      </View>
-
-      <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-        <View style={styles.ticket}>
-          <WatermarkBackground />
-          <View style={styles.ticketHeader}>
-            <Text style={styles.headerText}>{date.toLocaleDateString('ja-JP')}  {raceInfo.place}  {raceInfo.raceNum}R  {raceInfo.raceName}</Text>
-          </View>
-          <View style={styles.ticketBody}>
-            <Text style={styles.ticketTypeLabel}>{raceInfo.type}</Text>
-            <View style={styles.formationArea}>
-              {renderTicketHorseBlock("col1", "1列目")}
-              {currentType.cols >= 2 && raceInfo.col2.length > 0 && <View style={styles.columnDivider} />}
-              {renderTicketHorseBlock("col2", "2列目")}
-              {currentType.cols >= 3 && raceInfo.col3.length > 0 && <View style={styles.columnDivider} />}
-              {renderTicketHorseBlock("col3", "3列目")}
+        {/* 馬券プレビュー部分 */}
+        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }} style={styles.viewShotWrapper}>
+          <View style={styles.ticket} pointerEvents="none">
+            <WatermarkBackground />
+            <View style={styles.ticketHeader}>
+              <Text style={styles.headerText}>{date.toLocaleDateString('ja-JP')}  {raceInfo.place}  {raceInfo.raceNum}R  {raceInfo.raceName}</Text>
+            </View>
+            <View style={styles.ticketBody}>
+              <Text style={styles.ticketTypeLabel}>{raceInfo.type}</Text>
+              <View style={styles.formationArea}>
+                {renderTicketHorseBlock("col1", "1列目")}
+                {currentType.cols >= 2 && raceInfo.col2.length > 0 && <View style={styles.columnDivider} />}
+                {renderTicketHorseBlock("col2", "2列目")}
+                {currentType.cols >= 3 && raceInfo.col3.length > 0 && <View style={styles.columnDivider} />}
+                {renderTicketHorseBlock("col3", "3列目")}
+              </View>
+            </View>
+            <View style={styles.ticketFooter}>
+              <View>
+                <Text style={styles.calcDetail}>{calculateTickets()}点 各{pricePerUnit}円</Text>
+                <Text style={styles.totalAmountText}>合計 {(calculateTickets() * (Number(pricePerUnit) || 0)).toLocaleString()} 円</Text>
+              </View>
+              <View style={styles.iconContainer}>{userIcon ? <Image source={{ uri: userIcon }} style={styles.userIconStyle} /> : <View style={styles.dummyQr} />}</View>
             </View>
           </View>
-          <View style={styles.ticketFooter}>
-            <View>
-              <Text style={styles.calcDetail}>{calculateTickets()}点 各{pricePerUnit}円</Text>
-              <Text style={styles.totalAmountText}>合計 {(calculateTickets() * (Number(pricePerUnit) || 0)).toLocaleString()} 円</Text>
-            </View>
-            <View style={styles.iconContainer}>{userIcon ? <Image source={{ uri: userIcon }} style={styles.userIconStyle} /> : <View style={styles.dummyQr} />}</View>
-          </View>
-        </View>
-      </ViewShot>
+        </ViewShot>
 
-      <TouchableOpacity style={styles.saveBtn} onPress={handleShare}><Text style={styles.saveBtnText}>保存・共有する</Text></TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity style={styles.saveBtn} onPress={handleShare}>
+          <Text style={styles.saveBtnText}>保存・共有する</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f2f2f2', padding: 15, paddingTop: 50 },
   title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 15, color: '#1b5e20' },
-  formCard: { backgroundColor: '#fff', padding: 12, borderRadius: 15, elevation: 4, marginBottom: 20 },
+  formCard: { 
+    backgroundColor: '#fff', 
+    padding: 12, 
+    borderRadius: 15, 
+    elevation: 4, 
+    marginBottom: 20, 
+    zIndex: 10 // 入力フォームを前面に
+  },
   label: { fontSize: 11, fontWeight: 'bold', color: '#444', marginTop: 15, borderLeftWidth: 3, borderLeftColor: '#1b5e20', paddingLeft: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8 },
   iconPickBtn: { backgroundColor: '#e8f5e9', padding: 10, borderRadius: 8, alignItems: 'center', marginTop: 8 },
@@ -280,8 +300,29 @@ const styles = StyleSheet.create({
   horseChipActive: { backgroundColor: '#d32f2f' },
   horseNameInputOuter: { backgroundColor: '#fff9c4', padding: 10, borderRadius: 8, marginTop: 10, borderWidth: 1, borderColor: '#fbc02d', fontWeight: 'bold' },
 
-  ticket: { backgroundColor: '#fff', padding: 18, borderWidth: 1, borderColor: '#999', borderLeftWidth: 15, borderLeftColor: '#1b5e20', minHeight: 260, position: 'relative', overflow: 'hidden' },
-  watermarkContainer: { ...StyleSheet.absoluteFillObject, opacity: 0.04, transform: [{ rotate: '-20deg' }, { scale: 2 }], justifyContent: 'center' },
+  // --- 馬券プレビューのスタイル修正 ---
+  viewShotWrapper: { 
+    marginBottom: 20,
+    zIndex: 1 // プレビューの重なり順を下げる
+  },
+  ticket: { 
+    backgroundColor: '#fff', 
+    padding: 18, 
+    borderWidth: 1, 
+    borderColor: '#999', 
+    borderLeftWidth: 15, 
+    borderLeftColor: '#1b5e20', 
+    minHeight: 260, 
+    position: 'relative', 
+    overflow: 'hidden' 
+  },
+  watermarkContainer: { 
+    ...StyleSheet.absoluteFillObject, 
+    opacity: 0.03, 
+    transform: [{ rotate: '-20deg' }, { scale: 2 }], 
+    justifyContent: 'center',
+    zIndex: -1 // 透かしを最背面に
+  },
   watermarkText: { fontSize: 10, color: '#1b5e20', fontWeight: 'bold', lineHeight: 20, textAlign: 'center' },
   ticketHeader: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 10 },
   headerText: { fontSize: 15, fontWeight: 'bold' },

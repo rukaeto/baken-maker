@@ -7,9 +7,10 @@
   "android": "expo start --android",
   "ios": "expo start --ios",
   "web": "expo start --web",
-  "predeploy": "npx expo export --platform web && type nul > dist/.nojekyll",
+  "build-web": "npx expo export --platform web",
+  "predeploy": "npx expo export --platform web && echo. > dist/.nojekyll",
   "deploy": "gh-pages -d dist",
-  "build-web": "npx expo export --platform web"
+  "clean": "rd /s /q dist"
     },
 
   "dependencies": {

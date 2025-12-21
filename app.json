@@ -19,9 +19,10 @@
       ]
     },
     "web" : {
-      "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro",
+      "baseUrl": "/baken-maker"
     },
     "plugins": [
       [
